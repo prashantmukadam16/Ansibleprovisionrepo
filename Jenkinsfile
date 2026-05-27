@@ -3,7 +3,7 @@ pipeline {
     agent any
 
     environment {
-        PROJECT_ID = "your-gcp-project-id"
+        PROJECT_ID = "batch43-496010"
         GOOGLE_APPLICATION_CREDENTIALS = credentials('gcp-key')
     }
 
@@ -12,7 +12,7 @@ pipeline {
         stage('Checkout Code') {
             steps {
                 git branch: 'main',
-                url: 'https://github.com/yourrepo/DevOps-Project.git'
+                url: 'https://github.com/prashantmukadam16/Ansibleprovisionrepo.git'
             }
         }
 
