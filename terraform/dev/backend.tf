@@ -1,6 +1,6 @@
 terraform {
   backend "gcs" {
-    bucket = "terraform-state-dev"
+    bucket = "terraform-bucketudx-dev"
     prefix = "terraform/dev"
   }
 }
