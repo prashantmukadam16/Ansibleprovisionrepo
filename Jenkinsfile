@@ -4,7 +4,6 @@ pipeline {
 
     environment {
         PROJECT_ID = "batch43-496010"
-        GOOGLE_APPLICATION_CREDENTIALS = credentials('gcp-key')
     }
 
     stages {
@@ -18,8 +17,18 @@ pipeline {
 
         stage('Terraform Init') {
             steps {
-                dir('terraform/dev') {
-                    sh 'terraform init'
+                withCredentials([file(credentialsId: 'gcp-key', variable: 'GOOGLE_APPLICATION_CREDENTIALS')]) {
+
+                    sh '''
+                    echo "Credential File:"
+                    echo $GOOGLE_APPLICATION_CREDENTIALS
+
+                    ls -l $GOOGLE_APPLICATION_CREDENTIALS
+                    '''
+
+                    dir('terraform/dev') {
+                        sh 'terraform init -reconfigure'
+                    }
                 }
             }
         }
@@ -34,16 +43,22 @@ pipeline {
 
         stage('Terraform Plan') {
             steps {
-                dir('terraform/dev') {
-                    sh 'terraform plan'
+                withCredentials([file(credentialsId: 'gcp-key', variable: 'GOOGLE_APPLICATION_CREDENTIALS')]) {
+
+                    dir('terraform/dev') {
+                        sh 'terraform plan'
+                    }
                 }
             }
         }
 
         stage('Terraform Apply') {
             steps {
-                dir('terraform/dev') {
-                    sh 'terraform apply -auto-approve'
+                withCredentials([file(credentialsId: 'gcp-key', variable: 'GOOGLE_APPLICATION_CREDENTIALS')]) {
+
+                    dir('terraform/dev') {
+                        sh 'terraform apply -auto-approve'
+                    }
                 }
             }
         }
