@@ -1,0 +1,15 @@
+---
+- hosts: web
+  become: yes
+
+  tasks:
+
+    - name: Copy Application Files
+      copy:
+        src: ../../app/
+        dest: /var/www/html/
+
+    - name: Restart nginx
+      service:
+        name: nginx
+        state: restarted
