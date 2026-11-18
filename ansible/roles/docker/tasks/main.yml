@@ -1,12 +1,19 @@
 ---
-- name: Install Docker
-  apt:
+- name: Install Docker engine
+  ansible.builtin.apt:
     name: docker.io
-    state: latest
-    update_cache: yes
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
 
-- name: Start Docker
-  service:
+- name: Enable and start Docker
+  ansible.builtin.service:
     name: docker
-    enabled: yes
+    enabled: true
     state: started
+
+- name: Add deployment user to Docker group
+  ansible.builtin.user:
+    name: "{{ ansible_user }}"
+    groups: docker
+    append: true

@@ -1,0 +1,13 @@
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+crash.*.log
+*.pem
+*.key
+terraform-key.json
+ansible/inventory/generated.ini
+ansible/inventory/terraform-output.json
+__pycache__/
+*.pyc

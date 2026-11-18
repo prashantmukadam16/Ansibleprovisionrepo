@@ -1,6 +1,6 @@
 ---
-- hosts: web
-  become: yes
-
+- name: Install and start Docker on web instances
+  hosts: web
+  become: true
   roles:
     - docker

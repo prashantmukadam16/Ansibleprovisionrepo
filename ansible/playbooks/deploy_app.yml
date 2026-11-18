@@ -1,15 +1,48 @@
 ---
-- hosts: web
-  become: yes
-
+- name: Build and deploy the web application container
+  hosts: web
+  become: true
+  vars:
+    app_image: ansibleprovisionrepo-web:latest
+    app_source: "{{ playbook_dir }}/../../app/"
+    app_destination: /opt/ansibleprovisionrepo/app
   tasks:
+    - name: Create application directory
+      ansible.builtin.file:
+        path: "{{ app_destination }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
 
-    - name: Copy Application Files
-      copy:
-        src: ../../app/
-        dest: /var/www/html/
+    - name: Copy application source and Dockerfile
+      ansible.builtin.copy:
+        src: "{{ app_source }}"
+        dest: "{{ app_destination }}/"
+        owner: root
+        group: root
+        mode: preserve
 
-    - name: Restart nginx
-      service:
-        name: nginx
-        state: restarted
+    - name: Build application image
+      ansible.builtin.command:
+        cmd: "docker build --pull -t {{ app_image }} {{ app_destination }}"
+      changed_when: true
+
+    - name: Remove previous application container if present
+      ansible.builtin.command:
+        cmd: docker rm -f web-app
+      register: remove_container
+      failed_when: false
+      changed_when: remove_container.rc == 0
+
+    - name: Run application container
+      ansible.builtin.command:
+        cmd: "docker run -d --name web-app --restart unless-stopped -p 80:80 {{ app_image }}"
+      changed_when: true
+
+    - name: Verify container is running
+      ansible.builtin.command:
+        cmd: docker inspect --format={{ '{{' }}.State.Running{{ '}}' }} web-app
+      register: container_running
+      changed_when: false
+      failed_when: container_running.stdout != 'true'

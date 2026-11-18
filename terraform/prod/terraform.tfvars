@@ -1,3 +1,8 @@
-project_id = "your-project-id"
-region     = "us-central1"
-zone       = "us-central1-a"
+# Confirm this project and production settings before the first production run.
+project_id       = "project-88c619e6-27a3-4887-94b"
+region           = "us-central1"
+zone             = "us-central1-a"
+machine_type     = "e2-medium"
+instance_count   = 2
+name_prefix      = "ansible-prod"
+ssh_source_ranges = ["203.0.113.10/32"] # CHANGE to your Jenkins agent/admin public IP CIDR
