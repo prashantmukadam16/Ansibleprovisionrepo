@@ -17,7 +17,7 @@ module "vm" {
 
   instance_count   = 2
   instance_name    = "dev-server"
-  machine_type     = "e2-medium"
+  machine_type     = var.machine_type
   zone             = var.zone
   network          = "dev-vpc"
   public_key_path  = "~/.ssh/id_rsa.pub"
