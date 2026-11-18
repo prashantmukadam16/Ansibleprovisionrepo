@@ -25,8 +25,17 @@ pipeline {
     stages {
         stage('1. Checkout') {
             steps {
-                checkout scm
-                sh 'git status --short'
+                echo 'Checking out source code from GitHub'
+
+                git branch: 'main',
+                    url: 'https://github.com/prashantmukadam16/Ansibleprovisionrepo.git'
+
+                sh '''
+                    echo "Git checkout completed"
+                    git rev-parse --short HEAD
+                    git status --short
+                    ls -la
+                '''
             }
         }
 
