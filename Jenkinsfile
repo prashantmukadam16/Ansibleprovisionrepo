@@ -85,7 +85,20 @@ pipeline {
                     dir("terraform/${params.ENVIRONMENT}") {
                         sh '''
                             set -eu
-                            export TF_VAR_ssh_public_key="$(ssh-keygen -y -f "$SSH_KEY")"
+                            echo "Validating Jenkins SSH private key..."
+
+                            ssh-keygen -y -f "$SSH_KEY" > /tmp/jenkins_ssh_public_key
+
+                            export TF_VAR_ssh_public_key="$(cat /tmp/jenkins_ssh_public_key)"
+
+                            rm -f /tmp/jenkins_ssh_public_key
+
+                            if [ -z "$TF_VAR_ssh_public_key" ]; then
+                                echo "ERROR: SSH public key is empty"
+                                exit 1
+                            fi
+
+                            echo "SSH private key validation successful."
                             if [ "$ENVIRONMENT" = "dev" ]; then
                                 STATE_BUCKET="terraform-bucketudx-dev-426143574253"
                             else
@@ -124,7 +137,20 @@ pipeline {
                     dir("terraform/${params.ENVIRONMENT}") {
                         sh '''
                             set -eu
-                            export TF_VAR_ssh_public_key="$(ssh-keygen -y -f "$SSH_KEY")"
+                            echo "Validating Jenkins SSH private key..."
+
+                            ssh-keygen -y -f "$SSH_KEY" > /tmp/jenkins_ssh_public_key
+
+                            export TF_VAR_ssh_public_key="$(cat /tmp/jenkins_ssh_public_key)"
+
+                            rm -f /tmp/jenkins_ssh_public_key
+
+                            if [ -z "$TF_VAR_ssh_public_key" ]; then
+                                echo "ERROR: SSH public key is empty"
+                                exit 1
+                            fi
+
+                            echo "SSH private key validation successful."
                             terraform apply -input=false tfplan
                             terraform output -json > ../../ansible/inventory/terraform-output.json
                         '''
