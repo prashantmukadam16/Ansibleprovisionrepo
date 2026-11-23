@@ -145,7 +145,7 @@ pipeline {
             steps {
                 withCredentials([
                     file(credentialsId: 'gcp-key', variable: 'GOOGLE_APPLICATION_CREDENTIALS'),
-                    sshUserPrivateKey(credentialsId: 'gcp-vm-ssh', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')
+                    sshUserPrivateKey(credentialsId: 'gcp-vm-ssh-verified', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')
                 ]) {
                     dir("terraform/${params.ENVIRONMENT}") {
                         sh '''
@@ -176,7 +176,7 @@ pipeline {
             when { expression { return params.RUN_TERRAFORM_APPLY } }
             steps {
                 withCredentials([
-                    sshUserPrivateKey(credentialsId: 'gcp-vm-ssh', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')
+                    sshUserPrivateKey(credentialsId: 'gcp-vm-ssh-verified', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')
                 ]) {
                     sh '''
                         set -eu
@@ -194,7 +194,7 @@ pipeline {
             when { expression { return params.RUN_TERRAFORM_APPLY } }
             steps {
                 withCredentials([
-                    sshUserPrivateKey(credentialsId: 'gcp-vm-ssh', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')
+                    sshUserPrivateKey(credentialsId: 'gcp-vm-ssh-verified', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')
                 ]) {
                     sh '''
                         set -eu
@@ -212,7 +212,7 @@ pipeline {
             when { expression { return params.RUN_TERRAFORM_APPLY } }
             steps {
                 withCredentials([
-                    sshUserPrivateKey(credentialsId: 'gcp-vm-ssh', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')
+                    sshUserPrivateKey(credentialsId: 'gcp-vm-ssh-verified', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')
                 ]) {
                     sh '''
                         set -eu
