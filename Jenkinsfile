@@ -87,7 +87,7 @@ pipeline {
                             set -eu
                             export TF_VAR_ssh_public_key="$(ssh-keygen -y -f "$SSH_KEY")"
                             if [ "$ENVIRONMENT" = "dev" ]; then
-                                STATE_BUCKET="terraform-bucketudx-dev"
+                                STATE_BUCKET="terraform-bucketudx-dev-426143574253"
                             else
                                 STATE_BUCKET="terraform-state-prod"
                             fi
