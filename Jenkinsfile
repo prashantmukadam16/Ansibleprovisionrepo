@@ -80,36 +80,49 @@ pipeline {
             steps {
                 withCredentials([
                     file(credentialsId: 'gcp-key', variable: 'GOOGLE_APPLICATION_CREDENTIALS'),
-                    sshUserPrivateKey(credentialsId: 'gcp-vm-ssh', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')
+                    sshUserPrivateKey(credentialsId: 'gcp-vm-ssh-verified', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')
                 ]) {
                     dir("terraform/${params.ENVIRONMENT}") {
                         sh '''
                             set -eu
-                            echo "Validating Jenkins SSH private key..."
 
-                            ssh-keygen -y -f "$SSH_KEY" > /tmp/jenkins_ssh_public_key
 
-                            export TF_VAR_ssh_public_key="$(cat /tmp/jenkins_ssh_public_key)"
+        echo "===== JENKINS INJECTED SSH KEY DIAGNOSTICS ====="
 
-                            rm -f /tmp/jenkins_ssh_public_key
+        python3 -c 'import pathlib,sys; d=pathlib.Path(sys.argv[1]).read_bytes(); l=d.splitlines(); print("Injected key size:",len(d),"bytes"); print("Line count:",len(l)); print("First line:",l[0].decode("ascii","replace") if l else "<empty>"); print("Last line:",l[-1].decode("ascii","replace") if l else "<empty>"); print("Contains Windows CR characters:",b"\r" in d); print("Ends with newline:",d.endswith(b"\n")); print("OpenSSH header count:",d.count(b"-----BEGIN OPENSSH PRIVATE KEY-----")); print("OpenSSH footer count:",d.count(b"-----END OPENSSH PRIVATE KEY-----"))' "$SSH_KEY"
 
-                            if [ -z "$TF_VAR_ssh_public_key" ]; then
-                                echo "ERROR: SSH public key is empty"
-                                exit 1
-                            fi
+        echo "===== SSH KEY VALIDATION ====="
 
-                            echo "SSH private key validation successful."
-                            if [ "$ENVIRONMENT" = "dev" ]; then
-                                STATE_BUCKET="terraform-bucketudx-dev-426143574253"
-                            else
-                                STATE_BUCKET="terraform-state-prod"
-                            fi
-                            terraform init -reconfigure \
-                                -backend-config="bucket=${STATE_BUCKET}" \
-                                -backend-config="prefix=terraform/${ENVIRONMENT}"
-                            terraform plan -input=false -out=tfplan
-                            terraform show -no-color tfplan
-                        '''
+        PUBLIC_KEY_FILE=$(mktemp)
+        chmod 600 "$PUBLIC_KEY_FILE"
+
+        if ssh-keygen -y -f "$SSH_KEY" > "$PUBLIC_KEY_FILE"; then
+        echo "SUCCESS: Jenkins injected private key is valid."
+        echo "Injected public key fingerprint:"
+        ssh-keygen -lf "$PUBLIC_KEY_FILE"
+        else
+        echo "ERROR: Jenkins injected private key is invalid."
+        rm -f "$PUBLIC_KEY_FILE"
+        exit 1
+        fi
+
+        rm -f "$PUBLIC_KEY_FILE"
+
+        echo "===== END SSH KEY DIAGNOSTICS ====="
+
+        if [ "$ENVIRONMENT" = "dev" ]; then
+        STATE_BUCKET="terraform-bucketudx-dev-426143574253"
+        else
+        STATE_BUCKET="terraform-state-prod"
+        fi
+
+        terraform init -reconfigure 
+        -backend-config="bucket=${STATE_BUCKET}" 
+        -backend-config="prefix=terraform/${ENVIRONMENT}"
+
+        terraform plan -input=false -out=tfplan
+        terraform show -no-color tfplan
+        '''
                     }
                 }
             }
