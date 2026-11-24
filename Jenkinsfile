@@ -224,15 +224,28 @@ pipeline {
             when { expression { return params.RUN_TERRAFORM_APPLY } }
             steps {
                 withCredentials([
-                    sshUserPrivateKey(credentialsId: 'gcp-vm-ssh-verified', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')
+                    sshUserPrivateKey(
+                        credentialsId: 'gcp-vm-ssh-verified',
+                        keyFileVariable: 'SSH_KEY',
+                        usernameVariable: 'SSH_USER'
+                    )
                 ]) {
                     sh '''
                         set -eu
-                        ANSIBLE_CONFIG="$WORKSPACE/ansible/ansible.cfg" \
+
+                        export ANSIBLE_CONFIG="$WORKSPACE/ansible/ansible.cfg"
+
+                        echo "===== ANSIBLE CONFIGURATION ====="
+                        ansible --version
+
+                        echo "===== CONFIGURED ROLE PATH ====="
+                        ansible-config dump --only-changed | grep DEFAULT_ROLES_PATH
+
+                        echo "===== CONFIGURE DOCKER HOSTS ====="
                         ansible-playbook \
                             -i ansible/inventory/generated.ini \
                             --private-key "$SSH_KEY" \
-                            --user ubuntu \
+                            --user "$SSH_USER" \
                             ansible/playbooks/docker_setup.yml
                     '''
                 }
@@ -243,10 +256,21 @@ pipeline {
             when { expression { return params.RUN_TERRAFORM_APPLY } }
             steps {
                 withCredentials([
-                    sshUserPrivateKey(credentialsId: 'gcp-vm-ssh-verified', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')
+                    sshUserPrivateKey(
+                        credentialsId: 'gcp-vm-ssh-verified',
+                        keyFileVariable: 'SSH_KEY',
+                        usernameVariable: 'SSH_USER'
+                    )
                 ]) {
                     sh '''
                         set -eu
+
+                        export ANSIBLE_CONFIG="$WORKSPACE/ansible/ansible.cfg"
+
+                        echo "===== ANSIBLE CONFIGURATION ====="
+                        ansible --version
+
+                        echo "===== DEPLOY APPLICATION ====="
                         ansible-playbook \
                             -i ansible/inventory/generated.ini \
                             --private-key "$SSH_KEY" \
