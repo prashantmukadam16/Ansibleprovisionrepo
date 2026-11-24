@@ -86,43 +86,51 @@ pipeline {
                         sh '''
                             set -eu
 
-
         echo "===== JENKINS INJECTED SSH KEY DIAGNOSTICS ====="
 
-        python3 -c 'import pathlib,sys; d=pathlib.Path(sys.argv[1]).read_bytes(); l=d.splitlines(); print("Injected key size:",len(d),"bytes"); print("Line count:",len(l)); print("First line:",l[0].decode("ascii","replace") if l else "<empty>"); print("Last line:",l[-1].decode("ascii","replace") if l else "<empty>"); print("Contains Windows CR characters:",b"\r" in d); print("Ends with newline:",d.endswith(b"\n")); print("OpenSSH header count:",d.count(b"-----BEGIN OPENSSH PRIVATE KEY-----")); print("OpenSSH footer count:",d.count(b"-----END OPENSSH PRIVATE KEY-----"))' "$SSH_KEY"
+                                echo "Injected key size:"
+                                wc -c < "$SSH_KEY"
 
-        echo "===== SSH KEY VALIDATION ====="
+                                echo "Injected key line count:"
+                                wc -l < "$SSH_KEY"
 
-        PUBLIC_KEY_FILE=$(mktemp)
-        chmod 600 "$PUBLIC_KEY_FILE"
+                                echo "First line:"
+                                head -n 1 "$SSH_KEY"
 
-        if ssh-keygen -y -f "$SSH_KEY" > "$PUBLIC_KEY_FILE"; then
-        echo "SUCCESS: Jenkins injected private key is valid."
-        echo "Injected public key fingerprint:"
-        ssh-keygen -lf "$PUBLIC_KEY_FILE"
-        else
-        echo "ERROR: Jenkins injected private key is invalid."
-        rm -f "$PUBLIC_KEY_FILE"
-        exit 1
-        fi
+                                echo "Last line:"
+                                tail -n 1 "$SSH_KEY"
 
-        rm -f "$PUBLIC_KEY_FILE"
+                                echo "Checking for Windows CR characters:"
+                                if od -An -v -t x1 "$SSH_KEY" | tr ' ' '\n' | grep -qx '0d'; then
+                                    echo "WARNING: CR characters found"
+                                else
+                                    echo "OK: No CR characters found"
+                                fi
 
-        echo "===== END SSH KEY DIAGNOSTICS ====="
+                                echo "OpenSSH header count:"
+                                grep -c '^-----BEGIN OPENSSH PRIVATE KEY-----$' "$SSH_KEY" || true
 
-        if [ "$ENVIRONMENT" = "dev" ]; then
-        STATE_BUCKET="terraform-bucketudx-dev-426143574253"
-        else
-        STATE_BUCKET="terraform-state-prod"
-        fi
+                                echo "OpenSSH footer count:"
+                                grep -c '^-----END OPENSSH PRIVATE KEY-----$' "$SSH_KEY" || true
 
-        terraform init -reconfigure 
-        -backend-config="bucket=${STATE_BUCKET}" 
-        -backend-config="prefix=terraform/${ENVIRONMENT}"
+                                echo "===== SSH KEY VALIDATION ====="
 
-        terraform plan -input=false -out=tfplan
-        terraform show -no-color tfplan
-        '''
+                                PUBLIC_KEY_FILE=$(mktemp)
+                                chmod 600 "$PUBLIC_KEY_FILE"
+
+                                if ssh-keygen -y -f "$SSH_KEY" > "$PUBLIC_KEY_FILE"; then
+                                    echo "SUCCESS: Jenkins injected private key is valid."
+                                    echo "Injected public key fingerprint:"
+                                    ssh-keygen -lf "$PUBLIC_KEY_FILE"
+                                else
+                                    echo "ERROR: Jenkins injected private key is invalid."
+                                    rm -f "$PUBLIC_KEY_FILE"
+                                    exit 1
+                                fi
+
+                                rm -f "$PUBLIC_KEY_FILE"
+
+                                echo "===== END SSH KEY DIAGNOSTICS ====="
                     }
                 }
             }
