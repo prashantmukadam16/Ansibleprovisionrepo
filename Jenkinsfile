@@ -239,7 +239,7 @@ pipeline {
                         ansible --version
 
                         echo "===== CONFIGURED ROLE PATH ====="
-                        ansible-config dump --only-changed | grep DEFAULT_ROLES_PATH
+                        ansible-config dump --only-changed
 
                         echo "===== CONFIGURE DOCKER HOSTS ====="
                         ansible-playbook \
