@@ -234,12 +234,17 @@ pipeline {
                         set -eu
 
                         export ANSIBLE_CONFIG="$WORKSPACE/ansible/ansible.cfg"
+                        export ANSIBLE_ROLES_PATH="$WORKSPACE/ansible/roles"
 
                         echo "===== ANSIBLE CONFIGURATION ====="
                         ansible --version
 
-                        echo "===== CONFIGURED ROLE PATH ====="
+                        echo "===== ANSIBLE ROLE SEARCH PATH ====="
                         ansible-config dump --only-changed
+
+                        echo "===== VERIFY DOCKER ROLE ====="
+                        test -f "$ANSIBLE_ROLES_PATH/docker/tasks/main.yml"
+                        echo "Docker role found successfully."
 
                         echo "===== CONFIGURE DOCKER HOSTS ====="
                         ansible-playbook \
@@ -264,8 +269,8 @@ pipeline {
                 ]) {
                     sh '''
                         set -eu
-
                         export ANSIBLE_CONFIG="$WORKSPACE/ansible/ansible.cfg"
+                        export ANSIBLE_ROLES_PATH="$WORKSPACE/ansible/roles"
 
                         echo "===== ANSIBLE CONFIGURATION ====="
                         ansible --version
