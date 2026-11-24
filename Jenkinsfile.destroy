@@ -1,0 +1,201 @@
+
+pipeline {
+    agent any
+
+    options {
+        timestamps()
+        timeout(time: 60, unit: 'MINUTES')
+        disableConcurrentBuilds()
+    }
+
+    environment {
+        TF_IN_AUTOMATION = 'true'
+        TF_INPUT = 'false'
+        ENVIRONMENT = 'dev'
+        STATE_BUCKET = 'terraform-bucketudx-dev-426143574253'
+        TF_DIR = 'terraform/dev'
+    }
+
+    stages {
+
+        stage('1. Checkout Repository') {
+            steps {
+                checkout scm
+                echo 'Repository checkout completed.'
+            }
+        }
+
+        stage('2. Initialize and Verify Terraform State') {
+            steps {
+                withCredentials([
+                    file(
+                        credentialsId: 'gcp-key',
+                        variable: 'GCP_KEY'
+                    ),
+                    sshUserPrivateKey(
+                        credentialsId: 'gcp-vm-ssh-verified',
+                        keyFileVariable: 'SSH_KEY',
+                        usernameVariable: 'SSH_USER'
+                    )
+                ]) {
+                    dir('terraform/dev') {
+                        sh '''
+                            set -eu
+
+                            export GOOGLE_APPLICATION_CREDENTIALS="$GCP_KEY"
+                            export TF_VAR_ssh_public_key="$(ssh-keygen -y -f "$SSH_KEY")"
+
+                            echo "===== TERRAFORM VERSION ====="
+                            terraform version
+
+                            echo "===== INITIALIZE DEV BACKEND ====="
+                            terraform init -reconfigure \
+                                -backend-config="bucket=${STATE_BUCKET}" \
+                                -backend-config="prefix=terraform/dev"
+
+                            echo "===== TERRAFORM WORKSPACE ====="
+                            terraform workspace show
+
+                            if [ "$(terraform workspace show)" != "default" ]; then
+                                echo "ERROR: Expected default Terraform workspace."
+                                exit 1
+                            fi
+
+                            echo "===== CURRENT TERRAFORM STATE ====="
+                            terraform state list
+
+                            echo "===== CURRENT TERRAFORM OUTPUTS ====="
+                            terraform output
+                        '''
+                    }
+                }
+            }
+        }
+
+        stage('3. Generate DEV Destroy Plan') {
+            steps {
+                withCredentials([
+                    file(
+                        credentialsId: 'gcp-key',
+                        variable: 'GCP_KEY'
+                    ),
+                    sshUserPrivateKey(
+                        credentialsId: 'gcp-vm-ssh-verified',
+                        keyFileVariable: 'SSH_KEY',
+                        usernameVariable: 'SSH_USER'
+                    )
+                ]) {
+                    dir('terraform/dev') {
+                        sh '''
+                            set -eu
+
+                            export GOOGLE_APPLICATION_CREDENTIALS="$GCP_KEY"
+                            export TF_VAR_ssh_public_key="$(ssh-keygen -y -f "$SSH_KEY")"
+
+                            echo "===== GENERATE DESTROY PLAN ====="
+
+                            terraform plan \
+                                -destroy \
+                                -input=false \
+                                -out=destroy.tfplan
+
+                            echo "===== REVIEW DESTROY PLAN ====="
+
+                            terraform show -no-color destroy.tfplan
+                        '''
+                    }
+                }
+            }
+        }
+
+        stage('4. Manual Destruction Approval') {
+            steps {
+                input(
+                    message: 'Review the DEV Terraform destroy plan in the console. Approve only if every resource listed is intended for deletion and the Terraform state bucket is retained.',
+                    ok: 'Approve DEV Infrastructure Destruction'
+                )
+            }
+        }
+
+        stage('5. Destroy DEV Infrastructure') {
+            steps {
+                withCredentials([
+                    file(
+                        credentialsId: 'gcp-key',
+                        variable: 'GCP_KEY'
+                    ),
+                    sshUserPrivateKey(
+                        credentialsId: 'gcp-vm-ssh-verified',
+                        keyFileVariable: 'SSH_KEY',
+                        usernameVariable: 'SSH_USER'
+                    )
+                ]) {
+                    dir('terraform/dev') {
+                        sh '''
+                            set -eu
+
+                            export GOOGLE_APPLICATION_CREDENTIALS="$GCP_KEY"
+                            export TF_VAR_ssh_public_key="$(ssh-keygen -y -f "$SSH_KEY")"
+
+                            echo "===== EXECUTING APPROVED DESTROY PLAN ====="
+
+                            terraform apply \
+                                -input=false \
+                                destroy.tfplan
+
+                            echo "===== REMAINING TERRAFORM STATE ====="
+
+                            terraform state list
+                        '''
+                    }
+                }
+            }
+        }
+
+        stage('6. Verify Destruction') {
+            steps {
+                withCredentials([
+                    file(
+                        credentialsId: 'gcp-key',
+                        variable: 'GCP_KEY'
+                    )
+                ]) {
+                    dir('terraform/dev') {
+                        sh '''
+                            set -eu
+
+                            export GOOGLE_APPLICATION_CREDENTIALS="$GCP_KEY"
+
+                            echo "===== VERIFY TERRAFORM STATE ====="
+
+                            terraform state list
+
+                            echo "===== VERIFY GCP VM INSTANCES ====="
+
+                            gcloud compute instances list \
+                                --project=project-88c619e6-27a3-4887-94b
+                        '''
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            sh '''
+                rm -f terraform/dev/destroy.tfplan
+            '''
+            echo 'DEV destruction pipeline execution finished.'
+        }
+
+        success {
+            echo 'DEV infrastructure destruction completed successfully.'
+        }
+
+        failure {
+            echo 'DEV destruction pipeline failed. Review the logs and Terraform state before retrying.'
+        }
+    }
+}
+
