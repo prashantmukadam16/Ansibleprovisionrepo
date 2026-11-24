@@ -76,6 +76,7 @@ pipeline {
             }
         }
 
+        
         stage('4. Terraform Plan') {
             steps {
                 withCredentials([
@@ -86,55 +87,76 @@ pipeline {
                         sh '''
                             set -eu
 
-        echo "===== JENKINS INJECTED SSH KEY DIAGNOSTICS ====="
+                            echo "===== JENKINS INJECTED SSH KEY DIAGNOSTICS ====="
 
-                                echo "Injected key size:"
-                                wc -c < "$SSH_KEY"
+                            echo "Injected key size:"
+                            wc -c < "$SSH_KEY"
 
-                                echo "Injected key line count:"
-                                wc -l < "$SSH_KEY"
+                            echo "Injected key line count:"
+                            wc -l < "$SSH_KEY"
 
-                                echo "First line:"
-                                head -n 1 "$SSH_KEY"
+                            echo "First line:"
+                            head -n 1 "$SSH_KEY"
 
-                                echo "Last line:"
-                                tail -n 1 "$SSH_KEY"
+                            echo "Last line:"
+                            tail -n 1 "$SSH_KEY"
 
-                                echo "Checking for Windows CR characters:"
-                                if od -An -v -t x1 "$SSH_KEY" | tr ' ' '\n' | grep -qx '0d'; then
-                                    echo "WARNING: CR characters found"
-                                else
-                                    echo "OK: No CR characters found"
-                                fi
+                            echo "Checking for Windows CR characters:"
+                            if od -An -v -t x1 "$SSH_KEY" | tr ' ' '\\n' | grep -qx '0d'; then
+                                echo "WARNING: CR characters found"
+                            else
+                                echo "OK: No CR characters found"
+                            fi
 
-                                echo "OpenSSH header count:"
-                                grep -c '^-----BEGIN OPENSSH PRIVATE KEY-----$' "$SSH_KEY" || true
+                            echo "OpenSSH header count:"
+                            grep -c '^-----BEGIN OPENSSH PRIVATE KEY-----$' "$SSH_KEY" || true
 
-                                echo "OpenSSH footer count:"
-                                grep -c '^-----END OPENSSH PRIVATE KEY-----$' "$SSH_KEY" || true
+                            echo "OpenSSH footer count:"
+                            grep -c '^-----END OPENSSH PRIVATE KEY-----$' "$SSH_KEY" || true
 
-                                echo "===== SSH KEY VALIDATION ====="
+                            echo "===== SSH KEY VALIDATION ====="
 
-                                PUBLIC_KEY_FILE=$(mktemp)
-                                chmod 600 "$PUBLIC_KEY_FILE"
+                            PUBLIC_KEY_FILE=$(mktemp)
+                            chmod 600 "$PUBLIC_KEY_FILE"
 
-                                if ssh-keygen -y -f "$SSH_KEY" > "$PUBLIC_KEY_FILE"; then
-                                    echo "SUCCESS: Jenkins injected private key is valid."
-                                    echo "Injected public key fingerprint:"
-                                    ssh-keygen -lf "$PUBLIC_KEY_FILE"
-                                else
-                                    echo "ERROR: Jenkins injected private key is invalid."
-                                    rm -f "$PUBLIC_KEY_FILE"
-                                    exit 1
-                                fi
-
+                            if ssh-keygen -y -f "$SSH_KEY" > "$PUBLIC_KEY_FILE"; then
+                                echo "SUCCESS: Jenkins injected private key is valid."
+                                echo "Injected public key fingerprint:"
+                                ssh-keygen -lf "$PUBLIC_KEY_FILE"
+                                export TF_VAR_ssh_public_key="$(cat "$PUBLIC_KEY_FILE")"
+                            else
+                                echo "ERROR: Jenkins injected private key is invalid."
                                 rm -f "$PUBLIC_KEY_FILE"
+                                exit 1
+                            fi
 
-                                echo "===== END SSH KEY DIAGNOSTICS ====="
+                            rm -f "$PUBLIC_KEY_FILE"
+
+                            echo "===== END SSH KEY DIAGNOSTICS ====="
+
+                            if [ "$ENVIRONMENT" = "dev" ]; then
+                                STATE_BUCKET="terraform-bucketudx-dev-426143574253"
+                            else
+                                STATE_BUCKET="terraform-state-prod"
+                            fi
+
+                            echo "===== TERRAFORM INITIALIZATION ====="
+
+                            terraform init -reconfigure \
+                                -backend-config="bucket=${STATE_BUCKET}" \
+                                -backend-config="prefix=terraform/${ENVIRONMENT}"
+
+                            echo "===== TERRAFORM PLAN ====="
+
+                            terraform plan -input=false -out=tfplan
+
+                            terraform show -no-color tfplan
+                        '''
                     }
                 }
             }
         }
+
 
         stage('5. Approve Infrastructure Changes') {
             when { expression { return params.RUN_TERRAFORM_APPLY } }
