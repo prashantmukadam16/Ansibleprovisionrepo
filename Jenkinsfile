@@ -228,10 +228,11 @@ pipeline {
                 ]) {
                     sh '''
                         set -eu
+                        ANSIBLE_CONFIG="$WORKSPACE/ansible/ansible.cfg" \
                         ansible-playbook \
                             -i ansible/inventory/generated.ini \
                             --private-key "$SSH_KEY" \
-                            --user "$SSH_USER" \
+                            --user ubuntu \
                             ansible/playbooks/docker_setup.yml
                     '''
                 }
